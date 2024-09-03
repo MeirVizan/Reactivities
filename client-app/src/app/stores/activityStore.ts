@@ -2,6 +2,7 @@ import { makeAutoObservable, runInAction } from "mobx";
 import { Activity } from "../models/activity";
 import agent from "../api/agent";
 import { v4 as uuid } from 'uuid';
+import {format } from 'date-fns';
 
 export default class ActivityDashboard {
     activityRegistry = new Map<string, Activity>();
@@ -16,13 +17,14 @@ export default class ActivityDashboard {
     }
 
     get activitiesByDate() {
-        return Array.from(this.activityRegistry.values()).sort((a, b) => Date.parse(a.date) - Date.parse(b.date));
+        return Array.from(this.activityRegistry.values()).sort((a, b) =>
+            new Date(a.date!).getTime() - new Date(b.date!).getTime());
     }
 
     get groupedActivities() {
         return Object.entries(
             this.activitiesByDate.reduce((activities, activity) => {
-                const date = activity.date;
+                const date = format(activity.date!, 'dd MMM yyyy');
                 activities[date] = activities[date] ? [...activities[date], activity] : [activity];
                 return activities;
             }, {} as { [key: string]: Activity[] })
@@ -34,10 +36,7 @@ export default class ActivityDashboard {
         try {
             const activities = await agent.Activities.list();
             activities.forEach(activity => {
-                activity.date = activity.date.split('T')[0];
-                runInAction(() => {
-                    this.activityRegistry.set(activity.id, activity);
-                })
+                this.activityRegistry.set(activity.id, activity);
             })
             this.setLoadinInitial(false);
         } catch (error) {
@@ -73,7 +72,7 @@ export default class ActivityDashboard {
     }
 
     private setActivity = (activity: Activity) => {
-        activity.date = activity.date.split('T')[0];
+        activity.date = new Date(activity.date!);
         this.activityRegistry.set(activity.id, activity);
     }
 
@@ -137,6 +136,6 @@ export default class ActivityDashboard {
                 this.loading = false;
             })
         }
-      }
+    }
 
 }
